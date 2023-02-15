@@ -1,0 +1,1 @@
+python domain_sim.py --model.name=mdl --model.dir ./saved_results/adf --data.train ilsvrc_2012 --data.val ilsvrc_2012 omniglot aircraft cu_birds dtd quickdraw fungi vgg_flower --data.test cifar10 --train.learning_rate=3e-2 --train.max_iter=240000 --train.cosine_anneal_freq=48000 --train.eval_freq=48000
