@@ -28,14 +28,13 @@ import torchvision
 distill = DistillKL(10)
 
 def choose_eff(x):
-    if x < 0.05:
-        return 0.0
-    elif 0.05 <= x and x < 0.15:
-        return 0.1
-    elif 0.15 <= x  and x < 0.3:
-        return 0.25
+
+    if x > 0.75:
+        # print("one")
+        return 1.5
     else:
-        return 0.4
+        # print("half")
+        return 0.5
 
 
 def make_att(a, b, c=None):
@@ -171,7 +170,6 @@ class conv_tsa_up(nn.Module):
         self.conv.weight.requires_grad = False
         planes, in_planes, self.kernel_size, kernel_size = self.conv.weight.size()
         self.in_planes = in_planes
-        self.dropout = nn.Dropout2d(0.2)
         self.mode = 1
         self.groups = 8
         # task-specific adapters
@@ -184,14 +182,9 @@ class conv_tsa_up(nn.Module):
 
             else:
                 self.alpha = nn.Parameter(torch.ones(planes, in_planes, 1, 1), requires_grad=True)
-                self.alpha2 = nn.Parameter(torch.ones(planes, in_planes, 1, 1), requires_grad=True)
-                self.alpha_norm2 = nn.Parameter(torch.ones(planes, in_planes//self.groups, 3, 3), requires_grad=True)
 
                 self.avgpool = nn.AvgPool2d(kernel_size, padding=self.conv.padding, stride=self.conv.stride)
                 self.maxpool = nn.MaxPool2d(kernel_size, padding=self.conv.padding, stride=self.conv.stride)
-
-                self.a_bn = nn.BatchNorm2d(in_planes, eps=1e-05, momentum=1.0, affine=False, track_running_stats=True)
-                self.relu = nn.ReLU() 
     
                 
     def forward(self, x):
@@ -206,8 +199,10 @@ class conv_tsa_up(nn.Module):
         else:
             if self.mode==1:
                 y = y + F.conv2d(x, self.alpha, stride=self.conv.stride) 
+                # y = y + F.conv2d(self.avgpool(x), self.alpha) 
             elif self.mode==3:
-                y = y + F.conv2d(x, self.alpha, stride=self.conv.stride) 
+                y = y + F.conv2d(x, self.alpha, stride=self.conv.stride)
+                # y = y + F.conv2d(self.avgpool(x), self.alpha) 
             # elif self.mode==2:
                 # y = y + F.conv2d(x, self.alpha, stride=self.conv.stride)
             #     y = y + F.conv2d(x, self.alpha_norm2, padding=self.conv.padding, stride=self.conv.stride, groups=self.groups) 
@@ -235,8 +230,6 @@ class batch_tsa_up(nn.Module):
     def forward(self, x):
         y = self.batch(x)
 
-        # if self.mode == 2:
-        #     y = y + F.conv2d(self.a_bn(x), self.alpha_norm)
 
         return y
 
@@ -386,8 +379,8 @@ class resnet_tsa(nn.Module):
                       
                     else:
                         if 'norm' in k:
-                            v.data = (torch.randn(v.size()).to(v.device))*0.0001
-                            # v.data =  torch.eye(v.size(0), v.size(1)).unsqueeze(-1).unsqueeze(-1).to(v.device)*0.0001
+                            v.data = (torch.rand(v.size()).to(v.device))*0.0001
+
                         else:
                             v.data =  torch.eye(v.size(0), v.size(1)).unsqueeze(-1).unsqueeze(-1).to(v.device)*0.0001
 
@@ -449,12 +442,14 @@ def train_adapter(optimizer, scheduler, model, x, y, tsa_opt, max_iter, distance
 
 
         loss = loss * scale
-
+        # print('b',eff)
+        # eff = min(max(torch.randn(1).cuda()*0.01 + eff, 0.0), 1.0)
+        # print('a',eff)
        
         if c_features != None:
-            # loss2, stat, _ = prototype_loss(c_features, y,
-            #                            aligned_features, y, distance=distance)
-            loss = (1-eff)*loss + (eff)* distillation_loss(aligned_features, c_features, opt='cos') 
+            distill_loss = distillation_loss(aligned_features, c_features, opt=distance) 
+            
+            loss = (1-eff)*loss + (eff)* distill_loss 
             
         if  c_features != None and c_features2 != None:
             loss = (1-eff2)*loss + eff2* distillation_loss(aligned_features, c_features2, opt='cos')
@@ -469,9 +464,11 @@ def train_adapter(optimizer, scheduler, model, x, y, tsa_opt, max_iter, distance
         if stat['acc'] > 0.99 and not fixed:
             a += 1
             if a > max_iter:
+                # if c_features != None:
+                #     print(loss, distill_loss)
                 break
 
-def train_one_set(model, max_iter, lr, lr_w, lr_beta, tsa_opt, x, y, distance, beta='low', reset=False, c_features = None, eff=0, scale=1.0, fixed=False, c_features2 = None, eff2=0):
+def train_one_set(model, max_iter, lr, lr_w, lr_beta, tsa_opt, x, y, distance, beta='low', reset=False, c_features = None, eff=0, scale=1.0, fixed=False, c_features2 = None, eff2 = 0):
 
     alpha_params = [v for k, v in model.named_parameters() if ('alpha' in k and ('alpha_weight' not in k and 'alpha_bias' not in k))]
     alpha_params_w = [v for k, v in model.named_parameters() if ('alpha' in k and ('alpha_weight' in k or 'alpha_bias' in k)) or 'a_bn' in k]
@@ -545,11 +542,6 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
     lr = 0.5*scale
     lr_beta = 1.0*scale
 
-    # c_features = train_one_set(model, max_iter=5, lr=lr, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='low', reset=True, c_features = None, eff=1.0)
-
-    # c_features = train_one_set(model, max_iter=10, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=eff, scale=1.0, fixed=False)
-
-
     n_way = len(context_labels.unique())
     b_size = context_labels.size(0)
     n_shot = b_size//n_way
@@ -558,8 +550,7 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
     lrs = torch.Tensor([lr, lr, lr])
     lr_betas = torch.Tensor([lr_beta, lr_beta, lr_beta])
 
-    eff_bias = 0.5
-    sim1 = torch.abs(inter_sim-intra_sim)
+    eff_bias = 0.75
      
     for i in range(len(betas)):
         x = context_images
@@ -568,20 +559,20 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
             x = e_features
 
 
-        c_features = train_one_set(model, max_iter=5, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
+        c_features = train_one_set(model, max_iter=10, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
 
         
-        sim = 1.0-torch.abs(inter_sim-intra_sim)
-        eff = max(torch.tanh((sim)*eff_bias),0.0) 
+        sim = 1.0-torch.abs(inter_sim-intra_sim)*2
+        eff = min(torch.tanh((sim)*eff_bias), 1.0)  
 
         e_features = eff * e_features + (1.0-eff) * c_features
 
-        intra_sim, inter_sim, _ = compute_var(c_features, context_labels, n_way)
+        intra_sim, inter_sim, _ = compute_var(e_features, context_labels, n_way)
 
     sim = 1.0-torch.abs(inter_sim-intra_sim)
-    eff = max(torch.tanh((sim)*eff_bias),0.0)
-
-    c_features = train_one_set(model, max_iter=15, lr=lr*(whole_sim), lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
+    eff = min(torch.tanh((sim*eff_bias)), 1.0)
+    # print(whole_sim)
+    c_features = train_one_set(model, max_iter=15, lr=lr*0.5, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
 
 
     model.eval()
