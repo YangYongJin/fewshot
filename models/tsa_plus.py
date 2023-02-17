@@ -28,12 +28,9 @@ import torchvision
 distill = DistillKL(10)
 
 def choose_eff(x):
-
     if x > 0.75:
-        # print("one")
-        return 1.5
+        return 1.0
     else:
-        # print("half")
         return 0.5
 
 
@@ -379,7 +376,7 @@ class resnet_tsa(nn.Module):
                       
                     else:
                         if 'norm' in k:
-                            v.data = (torch.rand(v.size()).to(v.device))*0.0001
+                            v.data = (torch.randn(v.size()).to(v.device))*0.001
 
                         else:
                             v.data =  torch.eye(v.size(0), v.size(1)).unsqueeze(-1).unsqueeze(-1).to(v.device)*0.0001
@@ -550,7 +547,8 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
     lrs = torch.Tensor([lr, lr, lr])
     lr_betas = torch.Tensor([lr_beta, lr_beta, lr_beta])
 
-    eff_bias = 0.75
+    eff_bias = 0.5
+    sim1 = torch.abs(inter_sim-intra_sim)
      
     for i in range(len(betas)):
         x = context_images
@@ -562,17 +560,17 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
         c_features = train_one_set(model, max_iter=10, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
 
         
-        sim = 1.0-torch.abs(inter_sim-intra_sim)*2
+        sim = 1-torch.abs(inter_sim-intra_sim)
         eff = min(torch.tanh((sim)*eff_bias), 1.0)  
 
         e_features = eff * e_features + (1.0-eff) * c_features
 
         intra_sim, inter_sim, _ = compute_var(e_features, context_labels, n_way)
 
-    sim = 1.0-torch.abs(inter_sim-intra_sim)
+    sim = 1-torch.abs(inter_sim-intra_sim)
     eff = min(torch.tanh((sim*eff_bias)), 1.0)
     # print(whole_sim)
-    c_features = train_one_set(model, max_iter=15, lr=lr*0.5, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
+    c_features = train_one_set(model, max_iter=15, lr=lr*whole_sim, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
 
 
     model.eval()
