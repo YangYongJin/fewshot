@@ -557,20 +557,21 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
             x = e_features
 
 
-        c_features = train_one_set(model, max_iter=10, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
+        c_features = train_one_set(model, max_iter=int(3+np.log(n_shot**2)), lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
 
         
-        sim = 1-torch.abs(inter_sim-intra_sim)
+        sim = 1-torch.abs(inter_sim-intra_sim)*2 
         eff = min(torch.tanh((sim)*eff_bias), 1.0)  
 
         e_features = eff * e_features + (1.0-eff) * c_features
 
         intra_sim, inter_sim, _ = compute_var(e_features, context_labels, n_way)
 
-    sim = 1-torch.abs(inter_sim-intra_sim)
-    eff = min(torch.tanh((sim*eff_bias)), 1.0)
+    sim = 1-torch.abs(inter_sim-intra_sim) + 0.2
+    # print(sim)
+    eff = min(torch.tanh((sim*eff_bias)), 1.0) 
     # print(whole_sim)
-    c_features = train_one_set(model, max_iter=15, lr=lr*whole_sim, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
+    c_features = train_one_set(model, max_iter=int(15+np.log(n_shot**2)), lr=lr*whole_sim, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
 
 
     model.eval()
