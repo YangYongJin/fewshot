@@ -376,7 +376,7 @@ class resnet_tsa(nn.Module):
                       
                     else:
                         if 'norm' in k:
-                            v.data = (torch.randn(v.size()).to(v.device))*0.001
+                            v.data = (torch.randn(v.size()).to(v.device))*0.0001
 
                         else:
                             v.data =  torch.eye(v.size(0), v.size(1)).unsqueeze(-1).unsqueeze(-1).to(v.device)*0.0001
@@ -531,6 +531,7 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
         e_features = model.orig_resnet.embed(context_images)
         loss_t_o, stat_t_o, _ = prototype_loss(e_features, context_labels,
                                        e_features, context_labels, distance=distance)
+        c_original = e_features
     
     tsa_opt = args['test.tsa_opt']
 
@@ -547,7 +548,7 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
     lrs = torch.Tensor([lr, lr, lr])
     lr_betas = torch.Tensor([lr_beta, lr_beta, lr_beta])
 
-    eff_bias = 0.5
+    eff_bias = 1.0
     sim1 = torch.abs(inter_sim-intra_sim)
      
     for i in range(len(betas)):
@@ -557,21 +558,25 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
             x = e_features
 
 
-        c_features = train_one_set(model, max_iter=int(3+np.log(n_shot**2)), lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
+        c_features = train_one_set(model, max_iter=5, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
 
         
-        sim = 1-torch.abs(inter_sim-intra_sim)*2 
-        eff = min(torch.tanh((sim)*eff_bias), 1.0)  
+        sim = distillation_loss(c_features, c_original, opt='cos')
+        eff = min(torch.tanh((sim)**2), 1.0)
+        # print(sim)
+        # print(sim)  
 
         e_features = eff * e_features + (1.0-eff) * c_features
 
-        intra_sim, inter_sim, _ = compute_var(e_features, context_labels, n_way)
+        intra_sim, inter_sim, _ = compute_var(c_features, context_labels, n_way)
 
-    sim = 1-torch.abs(inter_sim-intra_sim) + 0.2
+    # sim = 1-torch.abs(inter_sim-intra_sim) + 0.2
     # print(sim)
-    eff = min(torch.tanh((sim*eff_bias)), 1.0) 
+    eff = torch.exp(-loss_t_o*1.0)
+    # print(eff) 
     # print(whole_sim)
-    c_features = train_one_set(model, max_iter=int(15+np.log(n_shot**2)), lr=lr*whole_sim, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
+    # # print(whole_sim)
+    c_features = train_one_set(model, max_iter=15, lr=lr*sim, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
 
 
     model.eval()
