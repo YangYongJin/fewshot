@@ -271,10 +271,10 @@ class pa(nn.Module):
 
         return x
 
-class resnet_tsa(nn.Module):
+class resnet_tsa_plus(nn.Module):
     """ Attaching task-specific adapters (alpha) and/or PA (beta) to the ResNet backbone """
     def __init__(self, orig_resnet):
-        super(resnet_tsa, self).__init__()
+        super(resnet_tsa_plus, self).__init__()
         # freeze the pretrained backbone
         for k, v in orig_resnet.named_parameters():
             v.requires_grad=False
@@ -361,7 +361,7 @@ class resnet_tsa(nn.Module):
         """Outputs all the parameters"""
         return [v for k, v in self.backbone.named_parameters()]
 
-    def reset(self):
+    def reset(self, scale=1.0):
         # initialize task-specific adapters (alpha)
         
         for k, v in self.named_parameters():
@@ -465,7 +465,7 @@ def train_adapter(optimizer, scheduler, model, x, y, tsa_opt, max_iter, distance
                 #     print(loss, distill_loss)
                 break
 
-def train_one_set(model, max_iter, lr, lr_w, lr_beta, tsa_opt, x, y, distance, beta='low', reset=False, c_features = None, eff=0, scale=1.0, fixed=False, c_features2 = None, eff2 = 0):
+def train_one_set(model, max_iter, lr, lr_w, lr_beta, tsa_opt, x, y, distance, beta='low', reset=False, c_features = None, eff=0, scale=1.0, fixed=False, c_features2 = None, eff2 = 0, init_scale=1.0):
 
     alpha_params = [v for k, v in model.named_parameters() if ('alpha' in k and ('alpha_weight' not in k and 'alpha_bias' not in k))]
     alpha_params_w = [v for k, v in model.named_parameters() if ('alpha' in k and ('alpha_weight' in k or 'alpha_bias' in k)) or 'a_bn' in k]
@@ -532,6 +532,9 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
         loss_t_o, stat_t_o, _ = prototype_loss(e_features, context_labels,
                                        e_features, context_labels, distance=distance)
         c_original = e_features
+        acc_stat = stat_t_o['acc']
+
+    # print(stat_t_o['acc'])
     
     tsa_opt = args['test.tsa_opt']
 
@@ -548,7 +551,7 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
     lrs = torch.Tensor([lr, lr, lr])
     lr_betas = torch.Tensor([lr_beta, lr_beta, lr_beta])
 
-    eff_bias = 1.0
+    eff_bias = 0.75
     sim1 = torch.abs(inter_sim-intra_sim)
      
     for i in range(len(betas)):
@@ -558,25 +561,26 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
             x = e_features
 
 
-        c_features = train_one_set(model, max_iter=5, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
+        c_features = train_one_set(model, max_iter=10, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
 
         
         sim = distillation_loss(c_features, c_original, opt='cos')
-        eff = min(torch.tanh((sim)**2), 1.0)
-        # print(sim)
+        eff = 0.5#min(torch.exp(-loss_t_o*(1-whole_sim)), 1.0) #torch.tanh(sim) #min(torch.tanh((sim)), 1.0)
+        # print(eff)
         # print(sim)  
 
         e_features = eff * e_features + (1.0-eff) * c_features
 
-        intra_sim, inter_sim, _ = compute_var(c_features, context_labels, n_way)
+        # intra_sim, inter_sim, _ = compute_var(c_features, context_labels, n_way)
 
     # sim = 1-torch.abs(inter_sim-intra_sim) + 0.2
     # print(sim)
-    eff = torch.exp(-loss_t_o*1.0)
-    # print(eff) 
-    # print(whole_sim)
-    # # print(whole_sim)
-    c_features = train_one_set(model, max_iter=15, lr=lr*sim, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
+    # print(sim, whole_sim, loss_t_o)
+    eff = min(torch.exp(-loss_t_o*sim), 1.0)
+
+    # print(eff)
+
+    c_features = train_one_set(model, max_iter=15, lr=lr*whole_sim, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = 0.0, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
 
 
     model.eval()

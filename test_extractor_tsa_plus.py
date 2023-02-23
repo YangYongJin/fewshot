@@ -28,7 +28,7 @@ from utils import check_dir
 from models.losses import prototype_loss, knn_loss, lr_loss, scm_loss, svm_loss
 from models.model_utils import CheckPointer
 from models.model_helpers import get_model
-from models.tsa_plus import resnet_tsa, tsa_plus
+from models.tsa_plus import resnet_tsa_plus, tsa_plus
 from data.meta_dataset_reader import (MetaDatasetEpisodeReader, MetaDatasetBatchReader, TRAIN_METADATASET_NAMES,
                                       ALL_METADATASET_NAMES)
 from config import args
@@ -79,7 +79,7 @@ def main():
     checkpointer = CheckPointer(args, model, optimizer=None)
     checkpointer.restore_model(ckpt='best', strict=False)
     model.eval()
-    model = resnet_tsa(model)
+    model = resnet_tsa_plus(model)
     model.reset()
     model.cuda()
 

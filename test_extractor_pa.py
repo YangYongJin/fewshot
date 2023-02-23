@@ -69,6 +69,7 @@ def main():
                     context_labels = sample['context_labels']
                     target_labels = sample['target_labels']
 
+
                 # optimize selection parameters and perform feature selection
                 selection_params = pa(context_features, context_labels, max_iter=40, lr=lr, distance=args['test.distance'])
                 selected_context = apply_selection(context_features, selection_params)

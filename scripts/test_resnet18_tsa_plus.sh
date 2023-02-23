@@ -8,7 +8,7 @@
 
 
 CUDA_VISIBLE_DEVICES=7  python test_extractor_tsa_plus.py --model.name=imagenet-net --model.dir ./saved_results/sdl --model.pretrained --source ./saved_results/sdl \
---test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl --data.test cifar10 mscoco aircraft dtd cifar100 cu_birds ilsvrc_2012  --out.method ensemble2 --test.size 600
+--test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl --data.test cu_birds cifar10 dtd mscoco cifar100 aircraft ilsvrc_2012   --out.method ensemble2 --test.size 600
 
 # 0: 0.8 
 # 1: loss eff bias 0.75 intra 2.0

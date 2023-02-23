@@ -4,13 +4,14 @@
 # --test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl\
 # set1: cifar10 mscoco dtd cifar100 cu_birds aircraft ilsvrc_2012 -3~4%
 # set2: omniglot quickdraw fungi vgg_flower traffic_sign mnist + 2~6%
+# vgg_flower traffic_sign mnist omniglot fungi
 
 
 CUDA_VISIBLE_DEVICES=6   python test_extractor_tsa_plus.py --model.name=imagenet-net --model.dir ./saved_results/sdl --model.pretrained --source ./saved_results/sdl \
---test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl --data.test omniglot fungi quickdraw vgg_flower traffic_sign mnist --out.method ensemble2 --test.size 600
+--test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl --data.test omniglot quickdraw fungi vgg_flower traffic_sign mnist --out.method ensemble2 --test.size 600
 
-# 0: e_features whole_sim
-# 1: 0.75
+# 0: lr 0.5
+# 1: lr wholesim
 # 2: 0.75
 # 3: 0.5 eff loss 
 # distillation from low to high - 0.8: 0.2 omniglot 83%
