@@ -31,7 +31,7 @@ def choose_eff(x):
     if x > 0.75:
         return 1.0
     else:
-        return 0.5
+        return 0.2
 
 
 def make_att(a, b, c=None):
@@ -459,6 +459,8 @@ def train_adapter(optimizer, scheduler, model, x, y, tsa_opt, max_iter, distance
             scheduler.step()
 
         if stat['acc'] > 0.99 and not fixed:
+            # if loss < 0.05:
+            #     break
             a += 1
             if a > max_iter:
                 # if c_features != None:
@@ -561,28 +563,36 @@ def tsa_plus(context_images, context_labels, model, max_iter=40, scale=0.1, dist
             x = e_features
 
 
-        c_features = train_one_set(model, max_iter=10, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.0, scale=1.0, fixed=False)
+        c_features = train_one_set(model, max_iter=10, lr=lrs[i], lr_w=lr_w, lr_beta=lr_betas[i], tsa_opt=tsa_opt, x=x, y=context_labels, distance=distance, beta=betas[i], reset=True, c_features = None, eff=0.5, scale=1.0, fixed=False)
 
         
-        sim = distillation_loss(c_features, c_original, opt='cos')
-        eff = 0.5#min(torch.exp(-loss_t_o*(1-whole_sim)), 1.0) #torch.tanh(sim) #min(torch.tanh((sim)), 1.0)
+        sim = distillation_loss(c_features, c_original, opt='cos', reduce=True).view(-1, 1)
+        # eff = 0.3  #min(torch.exp(-loss_t_o*(1-whole_sim)), 1.0) #torch.tanh(sim) #min(torch.tanh((sim)), 1.0)
         # print(eff)
-        # print(sim)  
+        # print(sim)
+        eff1 = 0.5
+        # print("1", eff)
+        # print(eff)
 
-        e_features = eff * e_features + (1.0-eff) * c_features
+        e_features = eff1* e_features + (1.0-eff1) * c_features
 
         # intra_sim, inter_sim, _ = compute_var(c_features, context_labels, n_way)
 
-    # sim = 1-torch.abs(inter_sim-intra_sim) + 0.2
+    # sim = distillation_loss(e_features, c_original, opt='cos')
     # print(sim)
     # print(sim, whole_sim, loss_t_o)
-    eff = min(torch.exp(-loss_t_o*sim), 1.0)
+    eff_bias = whole_sim*1.25
+    eff = min(torch.exp(-eff_bias*loss_t_o), 0.7) #+ 0.1
+    # print(eff)
+    # print("2", eff)
 
     # print(eff)
 
-    c_features = train_one_set(model, max_iter=15, lr=lr*whole_sim, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = 0.0, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
+    # print(sim)
+
+    c_features = train_one_set(model, max_iter=15, lr=lr, lr_w=lr_w, lr_beta=lr_beta, tsa_opt=tsa_opt, x=context_images, y=context_labels, distance=distance, beta='high', reset=False, c_features = e_features, eff = eff, scale=1.0, fixed=False, c_features2= None, eff2 = eff)
 
 
     model.eval()
 
-    return (lr, lr_beta, lr_w,eff_bias, c_features)
+    return (lr, lr_beta, lr_w,(eff1,eff), c_features)

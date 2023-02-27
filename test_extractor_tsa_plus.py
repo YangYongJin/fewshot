@@ -92,7 +92,7 @@ def main():
         # go over each test domain
         for dataset in testsets:
             if dataset in trainsets:
-                scale = 0.1
+                scale = 0.2
             else:
                 scale = 1.0
             print(dataset)

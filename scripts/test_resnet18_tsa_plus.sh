@@ -5,10 +5,9 @@
 # set1: cifar10 dtd mscoco cifar100 cu_birds aircraft ilsvrc_2012 -3~4%
 # set2: omniglot quickdraw fungi vgg_flower traffic_sign mnist + 2~6%
 
+CUDA_VISIBLE_DEVICES=7 python test_extractor_tsa_plus.py --model.name=url --model.dir ./saved_results/url --test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode mdl --data.test cifar10 dtd mscoco cifar100 cu_birds aircraft ilsvrc_2012 --out.method url --test.size 600
 
-
-CUDA_VISIBLE_DEVICES=7  python test_extractor_tsa_plus.py --model.name=imagenet-net --model.dir ./saved_results/sdl --model.pretrained --source ./saved_results/sdl \
---test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl --data.test cu_birds cifar10 dtd mscoco cifar100 aircraft ilsvrc_2012   --out.method ensemble2 --test.size 600
+# CUDA_VISIBLE_DEVICES=7  python test_extractor_tsa_plus.py --model.name=imagenet-net --model.dir ./saved_results/sdl --model.pretrained --source ./saved_results/sdl --test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl --data.test cu_birds cifar10 dtd mscoco cifar100 aircraft ilsvrc_2012   --out.method ensemble2 --test.size 600
 
 # 0: 0.8 
 # 1: loss eff bias 0.75 intra 2.0

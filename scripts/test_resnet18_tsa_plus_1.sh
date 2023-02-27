@@ -7,8 +7,9 @@
 # vgg_flower traffic_sign mnist omniglot fungi
 
 
-CUDA_VISIBLE_DEVICES=6   python test_extractor_tsa_plus.py --model.name=imagenet-net --model.dir ./saved_results/sdl --model.pretrained --source ./saved_results/sdl \
---test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl --data.test omniglot quickdraw fungi vgg_flower traffic_sign mnist --out.method ensemble2 --test.size 600
+CUDA_VISIBLE_DEVICES=6 python test_extractor_tsa_plus.py --model.name=url --model.dir ./saved_results/url --test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode mdl --data.test omniglot quickdraw fungi vgg_flower traffic_sign mnist --out.method url --test.size 600
+
+# CUDA_VISIBLE_DEVICES=6   python test_extractor_tsa_plus.py --model.name=imagenet-net --model.dir ./saved_results/sdl --model.pretrained --source ./saved_results/sdl --test.tsa-ad-type residual --test.tsa-ad-form matrix --test.tsa-opt alpha+beta --test.tsa-init eye --test.mode sdl --data.test omniglot quickdraw fungi vgg_flower traffic_sign mnist --out.method ensemble2 --test.size 600
 
 # 0: lr 0.5
 # 1: lr wholesim
